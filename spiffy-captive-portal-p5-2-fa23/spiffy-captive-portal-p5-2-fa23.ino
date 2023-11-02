@@ -172,7 +172,7 @@ void setup() {
   WiFi.mode(WIFI_AP);
 
   // WiFi Info
-  const char* ssid = "BRETT 01";
+  const char* ssid = "BRETT 02";
   const char* password = "NONE";
   
   WiFi.softAP(ssid);
