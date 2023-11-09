@@ -1,185 +1,74 @@
+
 /*
- * @name Flocking
- * @description Demonstration of <a href="http://www.red3d.com/cwr/">Craig Reynolds' "Flocking" behavior</a>.<br>
- * (Rules: Cohesion, Separation, Alignment.)<br>
- * From <a href="http://natureofcode.com">natureofcode.com</a>.
+ * @name Spirograph
+ * @arialabel A spirograph is created by interlocking black circle outlines rotating around each other on a grey background. When the user clicks the space bar, the background turns white and paths of circles of various sizes in an indigo color are visible
+ * @description This sketch uses simple transformations to create a
+ * Spirograph-like effect with interlocking circles (called sines).
+ * Press the spacebar to switch between tracing and showing the underlying geometry.<br>
+ * Example created by <a href='http://lukedubois.com/' target='_blank'>R. Luke DuBois</a>.<br>
+ * <a href='http://en.wikipedia.org/wiki/Spirograph'>http://en.wikipedia.org/wiki/Spirograph</a>
  */
-let boids = [];
+let NUMSINES = 20; // how many of these things can we do at once?
+let sines = new Array(NUMSINES); // an array to hold all the current angles
+let rad; // an initial radius value for the central sine
+let i; // a counter variable
+
+// play with these to get a sense of what's going on:
+let fund = 0.005; // the speed of the central sine
+let ratio = 1; // what multiplier for speed is each additional sine?
+let alpha = 50; // how opaque is the tracing system
+
+let trace = false; // are we tracing?
 
 function setup() {
-  createCanvas(900, 600);
+  createCanvas(710, 400);
 
-  // Add an initial set of boids into the system
-  for (let i = 0; i < 100; i++) {
-    boids[i] = new Boid(random(width), random(height));
+  rad = height / 4; // compute radius for central circle
+  background(204); // clear the screen
+
+  for (let i = 0; i<sines.length; i++) {
+    sines[i] = PI; // start EVERYBODY facing NORTH
   }
 }
 
 function draw() {
-  background(255);
-  // Run all the boids
-  for (let i = 0; i < boids.length; i++) {
-    boids[i].run(boids);
+  if (!trace) {
+    background(204); // clear screen if showing geometry
+    stroke(0, 255); // black pen
+    noFill(); // don't fill
   }
+
+  // MAIN ACTION
+  push(); // start a transformation matrix
+  translate(width / 2, height / 2); // move to middle of screen
+
+  for (let i = 0; i < sines.length; i++) {
+    let erad = 0; // radius for small "point" within circle... this is the 'pen' when tracing
+    // setup for tracing
+    if (trace) {
+      stroke(0, 0, 255 * (float(i) / sines.length), alpha); // blue
+      fill(0, 0, 255, alpha / 2); // also, um, blue
+      erad = 5.0 * (1.0 - float(i) / sines.length); // pen width will be related to which sine
+    }
+    let radius = rad / (i + 1); // radius for circle itself
+    rotate(sines[i]); // rotate circle
+    if (!trace) ellipse(0, 0, radius * 2, radius * 2); // if we're simulating, draw the sine
+    push(); // go up one level
+    translate(0, radius); // move to sine edge
+    if (!trace) ellipse(0, 0, 5, 5); // draw a little circle
+    if (trace) ellipse(0, 0, erad, erad); // draw with erad if tracing
+    pop(); // go down one level
+    translate(0, radius); // move into position for next sine
+    sines[i] = (sines[i] + (fund + (fund * i * ratio))) % TWO_PI; // update angle based on fundamental
+  }
+
+  pop(); // pop down final transformation
+
 }
 
-// Boid class
-// Methods for Separation, Cohesion, Alignment added
-class Boid {
-  constructor(x, y) {
-    this.acceleration = createVector(0, 0);
-    this.velocity = p5.Vector.random2D();
-    this.position = createVector(x, y);
-    this.r = 3.0;
-    this.maxspeed = 3;    // Maximum speed
-    this.maxforce = 0.05; // Maximum steering force
+function keyReleased() {
+  if (key==' ') {
+    trace = !trace;
+    background(255);
   }
-
-  run(boids) {
-    this.flock(boids);
-    this.update();
-    this.borders();
-    this.render();
-  }
-  
-  // Forces go into acceleration
-  applyForce(force) {
-    this.acceleration.add(force);
-  }
-  
-  // We accumulate a new acceleration each time based on three rules
-  flock(boids) {
-    let sep = this.separate(boids); // Separation
-    let ali = this.align(boids);    // Alignment
-    let coh = this.cohesion(boids); // Cohesion
-    // Arbitrarily weight these forces
-    sep.mult(2.5);
-    ali.mult(1.0);
-    coh.mult(1.0);
-    // Add the force vectors to acceleration
-    this.applyForce(sep);
-    this.applyForce(ali);
-    this.applyForce(coh);
-  }
-  
-  // Method to update location
-  update() {
-    // Update velocity
-    this.velocity.add(this.acceleration);
-    // Limit speed
-    this.velocity.limit(this.maxspeed);
-    this.position.add(this.velocity);
-    // Reset acceleration to 0 each cycle
-    this.acceleration.mult(0);
-  }
-  
-  // A method that calculates and applies a steering force towards a target
-  // STEER = DESIRED MINUS VELOCITY
-  seek(target) {
-    let desired = p5.Vector.sub(target, this.position); // A vector pointing from the location to the target
-    // Normalize desired and scale to maximum speed
-    desired.normalize();
-    desired.mult(this.maxspeed);
-    // Steering = Desired minus Velocity
-    let steer = p5.Vector.sub(desired, this.velocity);
-    steer.limit(this.maxforce); // Limit to maximum steering force
-    return steer;
-  }
-  
-  // Draw boid as a circle
-  render() {
-    fill(10);
-    noStroke();
-    ellipse(this.position.x, this.position.y, 8, 8);
-  }
-  
-  // Wraparound
-  borders() {
-    if (this.position.x < -this.r) this.position.x = width + this.r;
-    if (this.position.y < -this.r) this.position.y = height + this.r;
-    if (this.position.x > width + this.r) this.position.x = -this.r;
-    if (this.position.y > height + this.r) this.position.y = -this.r;
-  }
-  
-  // Separation
-  // Method checks for nearby boids and steers away
-  separate(boids) {
-    let desiredseparation = 25.0;
-    let steer = createVector(0, 0);
-    let count = 0;
-    // For every boid in the system, check if it's too close
-    for (let i = 0; i < boids.length; i++) {
-      let d = p5.Vector.dist(this.position, boids[i].position);
-      // If the distance is greater than 0 and less than an arbitrary amount (0 when you are yourself)
-      if ((d > 0) && (d < desiredseparation)) {
-        // Calculate vector pointing away from neighbor
-        let diff = p5.Vector.sub(this.position, boids[i].position);
-        diff.normalize();
-        diff.div(d); // Weight by distance
-        steer.add(diff);
-        count++; // Keep track of how many
-      }
-    }
-    // Average -- divide by how many
-    if (count > 0) {
-      steer.div(count);
-    }
-  
-    // As long as the vector is greater than 0
-    if (steer.mag() > 0) {
-      // Implement Reynolds: Steering = Desired - Velocity
-      steer.normalize();
-      steer.mult(this.maxspeed);
-      steer.sub(this.velocity);
-      steer.limit(this.maxforce);
-    }
-    return steer;
-  }
-  
-  // Alignment
-  // For every nearby boid in the system, calculate the average velocity
-  align(boids) {
-    let neighbordist = 50;
-    let sum = createVector(0, 0);
-    let count = 0;
-    for (let i = 0; i < boids.length; i++) {
-      let d = p5.Vector.dist(this.position, boids[i].position);
-      if ((d > 0) && (d < neighbordist)) {
-        sum.add(boids[i].velocity);
-        count++;
-      }
-    }
-    if (count > 0) {
-      sum.div(count);
-      sum.normalize();
-      sum.mult(this.maxspeed);
-      let steer = p5.Vector.sub(sum, this.velocity);
-      steer.limit(this.maxforce);
-      return steer;
-    } else {
-      return createVector(0, 0);
-    }
-  }
-  
-  // Cohesion
-  // For the average location (i.e. center) of all nearby boids, calculate steering vector towards that location
-  cohesion(boids) {
-    let neighbordist = 50;
-    let sum = createVector(0, 0); // Start with empty vector to accumulate all locations
-    let count = 0;
-    for (let i = 0; i < boids.length; i++) {
-      let d = p5.Vector.dist(this.position, boids[i].position);
-      if ((d > 0) && (d < neighbordist)) {
-        sum.add(boids[i].position); // Add location
-        count++;
-      }
-    }
-    if (count > 0) {
-      sum.div(count);
-      return this.seek(sum); // Steer towards the location
-    } else {
-      return createVector(0, 0);
-    }
-  }  
 }
-
